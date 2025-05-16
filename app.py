@@ -11,23 +11,26 @@ import random
 st.set_page_config(page_title="Bullying Dashboard", layout="wide")
 st.markdown("<style>body { background-color: #111; color: white; }</style>", unsafe_allow_html=True)
 # ===============================
-
 # === Generate Dummy Data ===
+topics = [
+    "US reportedly plans to slash bank rules", "More than 1,000 Starbucks baristas go on strike",
+    "Harvard’s copy of Magna Carta is accessible", "Mother allegedly buys ammunition, tactical gear",
+    "UnitedHealth under criminal probe", "State leaders prepare for post Roe v. Wade",
+    "Walmart warns of higher prices", "Girl escapes captivity from New Jersey",
+    "US transportation secretary changed wife’s file", "Mayor proposes anti-theft policy",
+    "Viral TikTok shows looting in broad daylight", "Online trolls target transgender student",
+    "High school student assaulted", "Online bullying spikes after school closure",
+    "Reddit user shares suicide story", "News outlet covers school shooting aftermath",
+    "Teen victim speaks out about bullying", "Local protest against online abuse",
+    "AI-generated fake news spreads hate", "Platform rolls out new safety feature"
+]
+# Make exactly 50 topics
+topics = topics * (50 // len(topics)) + topics[:50 % len(topics)]
+
 data = {
     'id': [f"1kn{''.join(random.choices('abcdefghijklmnopqrstuvwxyz0123456789', k=4))}" for _ in range(50)],
-    'Topic': [
-        "US reportedly plans to slash bank rules", "More than 1,000 Starbucks baristas go on strike",
-        "Harvard’s copy of Magna Carta is accessible", "Mother allegedly buys ammunition, tactical gear",
-        "UnitedHealth under criminal probe", "State leaders prepare for post Roe v. Wade",
-        "Walmart warns of higher prices", "Girl escapes captivity from New Jersey",
-        "US transportation secretary changed wife’s file", "Mayor proposes anti-theft policy",
-        "Viral TikTok shows looting in broad daylight", "Online trolls target transgender student",
-        "High school student assaulted", "Online bullying spikes after school closure",
-        "Reddit user shares suicide story", "News outlet covers school shooting aftermath",
-        "Teen victim speaks out about bullying", "Local protest against online abuse",
-        "AI-generated fake news spreads hate", "Platform rolls out new safety feature"
-    ] * 3,
-    'text': [None]*50,
+    'Topic': topics,
+    'text': [None] * 50,
     'url': [f"https://newswebsite.com/article/{i}" for i in range(50)],
     'Score': [random.randint(100, 50000) for _ in range(50)],
     'Comments': [random.randint(5, 2000) for _ in range(50)],
@@ -36,6 +39,7 @@ data = {
     'Platform': ['Reddit'] * 50,
     'Bullying': random.choices([0, 1], weights=[0.7, 0.3], k=50),
 }
+
 
 df = pd.DataFrame(data)
 df['timestamp_utc'] = pd.to_datetime(df['timestamp_utc'], errors='coerce')
