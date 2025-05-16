@@ -10,9 +10,9 @@ import random
 st.set_page_config(layout="wide", page_title="Cyberbullying Dashboard")
 st.markdown("""
     <style>
-        .main { background-color: #0e1117; color: white; }
-        .st-bf, .st-ag, .st-af { background-color: #0e1117; color: white; }
-        .st-c4 { color: white; }
+        .main { background-color: #white; color: 0e1117; }
+        .st-bf, .st-ag, .st-af { background-color: #white; color: 0e1117; }
+        .st-c4 { color: 0e1117; }
     </style>
 """, unsafe_allow_html=True)
 
@@ -116,7 +116,7 @@ st.plotly_chart(fig4, use_container_width=True)
 st.subheader("5. 🧠 Word Cloud of Topics")
 if not filtered_df.empty and filtered_df['Topic'].notna().any():
     wordcloud_data = ' '.join(filtered_df['Topic'].dropna().astype(str))
-    wordcloud = WordCloud(width=800, height=400, background_color='black').generate(wordcloud_data)
+    wordcloud = WordCloud(width=800, height=400, background_color='white').generate(wordcloud_data)
     plt.figure(figsize=(10, 5))
     plt.imshow(wordcloud, interpolation='bilinear')
     plt.axis("off")
