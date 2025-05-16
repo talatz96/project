@@ -48,7 +48,7 @@ def is_bullying_model(text):
 
 def load_data():
     import os
-    db_path = "db/social_media.db"
+    db_path = "social_media.db"
   # adjust if path is different
     conn = sqlite3.connect(db_path)
 
@@ -85,7 +85,7 @@ else:
 
 df['Bullying'] = pd.to_numeric(df['Bullying'], errors='coerce').fillna(0).astype(int)
 df['timestamp_utc'] = pd.to_datetime(df['timestamp_utc'], errors='coerce')
-df['Date'] = df['timestamp_utc'].dt.date
+df['Date'] = df['timestamp_utc']
 df['Hour'] = df['timestamp_utc'].dt.hour
 
 st.title("📊 Social Media Bullying Trends Dashboard")
@@ -174,3 +174,40 @@ if not filtered_df.empty and filtered_df['Topic'].notna().any():
     st.pyplot(plt)
 else:
     st.warning("No text data available for the word cloud with the current filters.")
+
+
+# 1. Number of Bullying Posts by Date
+st.subheader("1. Number of Bullying Posts by Date")
+bully_by_date = df[df['Bullying'] == 1].groupby('Date').size().reset_index(name='Bullying Posts')
+fig1 = px.bar(bully_by_date, x='Date', y='Bullying Posts', title='Bullying Posts Over Time')
+st.plotly_chart(fig1, use_container_width=True)
+
+# 2. Bullying vs Non-Bullying by Subreddit
+st.subheader("2. Bullying vs Non-Bullying by Subreddit")
+bully_by_subreddit = df.groupby(['Subreddit', 'Bullying']).size().reset_index(name='Count')
+fig2 = px.bar(bully_by_subreddit, x='Subreddit', y='Count', color='Bullying',
+              barmode='group', title='Bullying vs Non-Bullying Posts by Subreddit')
+st.plotly_chart(fig2, use_container_width=True)
+
+# 3. Avg Comments & Posts by Bullying Label
+st.subheader("3. Average Comments & Posts (Bullying vs Non-Bullying)")
+agg_df = df.groupby('Bullying').agg({
+    'Comments': 'mean',
+    'id': 'count'
+}).rename(columns={'id': 'Total Posts'}).reset_index()
+agg_df['Bullying'] = agg_df['Bullying'].map({0: 'Non-Bullying', 1: 'Bullying'})
+fig3 = px.bar(agg_df.melt(id_vars='Bullying', var_name='Metric', value_name='Average'),
+              x='Bullying', y='Average', color='Metric', barmode='group',
+              title='Avg. Comments & Total Posts by Bullying Label')
+st.plotly_chart(fig3, use_container_width=True)
+
+# 4. Top 5 Subreddits of the Month
+st.subheader("4. Top 5 Subreddits of the Month")
+month = st.selectbox("Select Month", sorted(df['Date'].dt.strftime("%Y-%m").unique(), reverse=True))
+top_subs = df[df['Date'].dt.strftime("%Y-%m") == month].groupby('Subreddit').size().nlargest(5).reset_index(name='Post Count')
+fig4 = px.bar(top_subs, x='Subreddit', y='Post Count', title=f'Top 5 Subreddits in {month}')
+st.plotly_chart(fig4, use_container_width=True)
+
+# Optional: Show raw data
+if st.checkbox("Show raw data"):
+    st.write(df.head(20))
