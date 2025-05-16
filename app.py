@@ -1,15 +1,12 @@
 import streamlit as st
 import pandas as pd
 import plotly.express as px
-import plotly.graph_objects as go
 from wordcloud import WordCloud
 import matplotlib.pyplot as plt
 from datetime import datetime, timedelta
 import random
 
-st.set_page_config(page_title="Cyberbullying Dashboard", layout="wide")
-
-# Dummy data generation
+# === Dummy Data Generation ===
 data = {
     'id': [f"1kn{''.join(random.choices('abcdefghijklmnopqrstuvwxyz0123456789', k=4))}" for _ in range(20)],
     'Topic': [
@@ -32,13 +29,19 @@ data = {
     'timestamp_utc': [(datetime.now() - timedelta(days=random.randint(0, 3), hours=random.randint(0, 23))).strftime('%Y-%m-%d %H:%M:%S') for _ in range(20)],
     'Platform': ['Reddit'] * 20,
     'Bullying': random.choices([0, 1], weights=[0.7, 0.3], k=20),
-    'Date': [(datetime.now() - timedelta(days=random.randint(0, 3))).strftime('%Y-%m-%d') for _ in range(20)],
-    'Hour': [random.randint(0, 23) for _ in range(20)],
 }
+
 df = pd.DataFrame(data)
-df['timestamp_utc'] = pd.to_datetime(df['timestamp_utc'], errors='coerce')
-df['Date'] = pd.to_datetime(df['timestamp_utc'].dt.date)
+
+# Format columns
+df['timestamp_utc'] = pd.to_datetime(df['timestamp_utc'])
+df['Date'] = df['timestamp_utc'].dt.date
 df['Hour'] = df['timestamp_utc'].dt.hour
+df['Bullying'] = pd.to_numeric(df['Bullying'], errors='coerce').fillna(0).astype(int)
+
+# === Streamlit App ===
+st.set_page_config(page_title="Social Media Bullying Dashboard", layout="wide")
+st.title("📊 Social Media Bullying Trends Dashboard")
 
 # === Sidebar Filters ===
 st.sidebar.header("🔍 Filter Data")
@@ -47,7 +50,7 @@ platforms = st.sidebar.multiselect("Platforms", df['Platform'].unique(), default
 subreddits = st.sidebar.multiselect("Subreddits", df['Subreddit'].unique(), default=df['Subreddit'].unique())
 bullying_only = st.sidebar.checkbox("Show only bullying posts")
 
-# === Apply Filters ===
+# Apply Filters
 start_date, end_date = pd.to_datetime(date_range[0]), pd.to_datetime(date_range[1])
 mask = (
     (df['timestamp_utc'] >= start_date) &
@@ -57,74 +60,80 @@ mask = (
 )
 if bullying_only:
     mask &= df['Bullying'] == 1
-
 filtered_df = df[mask]
 
-# === Title and KPIs ===
-st.title("📊 Cyberbullying Monitoring Dashboard")
-kpi1, kpi2, kpi3 = st.columns(3)
-kpi1.metric("Total Posts", len(filtered_df))
-kpi2.metric("% Bullying Posts", f"{(filtered_df['Bullying'].mean()) * 100:.1f}%")
-kpi3.metric("Active Subreddits", filtered_df['Subreddit'].nunique())
+# === KPIs ===
+st.markdown("### 📌 Key Metrics")
+col1, col2, col3, col4 = st.columns(4)
+col1.metric("Total Posts", len(filtered_df))
+col2.metric("% Bullying Posts", f"{(filtered_df['Bullying'].mean()) * 100:.1f}%" if not filtered_df.empty else "0.0%")
+col3.metric("Most Active Subreddit", filtered_df['Subreddit'].mode().values[0] if not filtered_df.empty else "N/A")
+col4.metric("Top Platform", filtered_df['Platform'].mode().values[0] if not filtered_df.empty else "N/A")
 
-# === Donut Chart: Bullying vs Non-Bullying ===
-st.markdown("### 🧩 Bullying Distribution")
-bullying_counts = filtered_df['Bullying'].value_counts().rename(index={0: 'Non-Bullying', 1: 'Bullying'})
-fig_pie = go.Figure(data=[go.Pie(labels=bullying_counts.index, values=bullying_counts.values, hole=.4)])
-st.plotly_chart(fig_pie, use_container_width=True)
+# === Interactive Date Range Slider for Chart ===
+st.subheader("📅 Filter by Date Range")
+min_date, max_date = df['Date'].min(), df['Date'].max()
+selected_range = st.slider("Select Date Range", min_value=min_date, max_value=max_date,
+                           value=(min_date, max_date), format="YYYY-MM-DD")
+mask_date = (df['Date'] >= selected_range[0]) & (df['Date'] <= selected_range[1])
+filtered_by_date_df = df[mask_date]
+
+# === Chart 1: Bullying Posts by Date ===
+st.subheader("1. Bullying Posts Over Time")
+bully_by_date = filtered_by_date_df[filtered_by_date_df['Bullying'] == 1] \
+    .groupby('Date').size().reset_index(name='Bullying Posts')
+fig1 = px.bar(bully_by_date, x='Date', y='Bullying Posts',
+              title='Bullying Posts Over Time (Filtered)',
+              labels={'Bullying Posts': 'Count'})
+st.plotly_chart(fig1, use_container_width=True)
+
+# === Chart 2: Bullying vs Non-Bullying by Subreddit ===
+st.subheader("2. Bullying vs Non-Bullying by Subreddit")
+bully_by_subreddit = df.groupby(['Subreddit', 'Bullying']).size().reset_index(name='Count')
+fig2 = px.bar(bully_by_subreddit, x='Subreddit', y='Count', color='Bullying',
+              barmode='group', title='Post Distribution by Subreddit & Label')
+st.plotly_chart(fig2, use_container_width=True)
+
+# === Chart 3: Average Comments & Total Posts ===
+st.subheader("3. Engagement: Avg Comments & Post Count")
+agg_df = df.groupby('Bullying').agg({
+    'Comments': 'mean',
+    'id': 'count'
+}).rename(columns={'id': 'Total Posts'}).reset_index()
+agg_df['Bullying'] = agg_df['Bullying'].map({0: 'Non-Bullying', 1: 'Bullying'})
+fig3 = px.bar(agg_df.melt(id_vars='Bullying', var_name='Metric', value_name='Average'),
+              x='Bullying', y='Average', color='Metric', barmode='group',
+              title='Average Comments & Total Posts by Label')
+st.plotly_chart(fig3, use_container_width=True)
+
+# === Chart 4: Top 5 Subreddits of Selected Month ===
+st.subheader("4. Top 5 Subreddits This Month")
+month = st.selectbox("Select Month", sorted(df['timestamp_utc'].dt.strftime("%Y-%m").unique(), reverse=True))
+top_subs = df[df['timestamp_utc'].dt.strftime("%Y-%m") == month] \
+    .groupby('Subreddit').size().nlargest(5).reset_index(name='Post Count')
+fig4 = px.bar(top_subs, x='Subreddit', y='Post Count', title=f'Top 5 Subreddits in {month}')
+st.plotly_chart(fig4, use_container_width=True)
+
+# === Engagement Chart: Score vs Comments ===
+st.subheader("5. Score vs Comments Engagement")
+fig_engage = px.scatter(filtered_df, x='Score', y='Comments',
+                        color=filtered_df['Bullying'].map({1: 'Bullying', 0: 'Non-Bullying'}),
+                        hover_data=['Topic', 'Subreddit'],
+                        title='Engagement: Score vs Comments')
+st.plotly_chart(fig_engage, use_container_width=True)
 
 # === Word Cloud ===
-st.markdown("### ☁️ Word Cloud of Post Topics")
+st.subheader("6. 🧠 Word Cloud of Topics")
 if not filtered_df.empty and filtered_df['Topic'].notna().any():
     wordcloud_data = ' '.join(filtered_df['Topic'].dropna().astype(str))
     wordcloud = WordCloud(width=800, height=400, background_color='white').generate(wordcloud_data)
-    plt.figure(figsize=(10, 5))
-    plt.imshow(wordcloud, interpolation='bilinear')
-    plt.axis("off")
-    st.pyplot(plt)
+    fig, ax = plt.subplots(figsize=(10, 5))
+    ax.imshow(wordcloud, interpolation='bilinear')
+    ax.axis("off")
+    st.pyplot(fig)
 else:
-    st.warning("No text data available for the word cloud with the current filters.")
-
-# === Bullying Trend Over Time ===
-st.markdown("### 📈 Bullying Trend Over Time")
-trend_df = filtered_df.copy()
-trend_df['Month'] = trend_df['timestamp_utc'].dt.to_period('M').astype(str)
-trend = trend_df[trend_df['Bullying'] == 1].groupby('Month').size().reset_index(name='Bullying Posts')
-fig_trend = px.line(trend, x='Month', y='Bullying Posts', title="Bullying Trend Over Months")
-st.plotly_chart(fig_trend, use_container_width=True)
-
-# === Score vs Comments Scatter ===
-st.markdown("### 🔥 Engagement (Score vs Comments)")
-fig_engage = px.scatter(
-    filtered_df,
-    x='Score',
-    y='Comments',
-    color=filtered_df['Bullying'].map({1: 'Bullying', 0: 'Non-Bullying'}),
-    hover_data=['Topic', 'Subreddit'],
-    title="Engagement Level by Post Type"
-)
-st.plotly_chart(fig_engage, use_container_width=True)
-
-# === Subreddit Analysis ===
-st.markdown("### 📌 Subreddit Contribution")
-subreddit_bars = filtered_df.groupby(['Subreddit', 'Bullying']).size().reset_index(name='Count')
-fig_sub_bar = px.bar(
-    subreddit_bars,
-    x='Subreddit',
-    y='Count',
-    color=subreddit_bars['Bullying'].map({1: 'Bullying', 0: 'Non-Bullying'}),
-    barmode='group',
-    title="Post Count by Subreddit"
-)
-st.plotly_chart(fig_sub_bar, use_container_width=True)
-
-# === Hourly Trend ===
-st.markdown("### ⏰ Posting Hour Distribution")
-hourly_dist = filtered_df.groupby(['Hour', 'Bullying']).size().reset_index(name='Posts')
-fig_hour = px.bar(hourly_dist, x='Hour', y='Posts', color=hourly_dist['Bullying'].map({1: 'Bullying', 0: 'Non-Bullying'}),
-                  barmode='group', title='Posts Distribution by Hour')
-st.plotly_chart(fig_hour, use_container_width=True)
+    st.info("No text available to generate a word cloud.")
 
 # === Raw Data Toggle ===
-with st.expander("📄 View Raw Data"):
-    st.dataframe(filtered_df)
+if st.checkbox("📄 Show Raw Data"):
+    st.dataframe(df.head(20))
