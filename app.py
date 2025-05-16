@@ -45,7 +45,6 @@ st.title("📊 Social Media Bullying Trends Dashboard")
 
 # === Sidebar Filters ===
 st.sidebar.header("🔍 Filter Data")
-date_range = st.sidebar.date_input("Select Date Range", [df['Date'].min(), df['Date'].max()])
 platforms = st.sidebar.multiselect("Platforms", df['Platform'].unique(), default=df['Platform'].unique())
 subreddits = st.sidebar.multiselect("Subreddits", df['Subreddit'].unique(), default=df['Subreddit'].unique())
 bullying_only = st.sidebar.checkbox("Show only bullying posts")
