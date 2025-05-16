@@ -52,8 +52,6 @@ bullying_only = st.sidebar.checkbox("Show only bullying posts")
 # Apply Filters
 start_date, end_date = pd.to_datetime(date_range[0]), pd.to_datetime(date_range[1])
 mask = (
-    (df['timestamp_utc'] >= start_date) &
-    (df['timestamp_utc'] <= end_date) &
     (df['Platform'].isin(platforms)) &
     (df['Subreddit'].isin(subreddits))
 )
